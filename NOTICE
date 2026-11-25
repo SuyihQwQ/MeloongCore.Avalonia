@@ -1,0 +1,9 @@
+MeloongCore.Avalonia
+Copyright © 2026 SuyihQwQ and contributors
+
+本仓库是 MeloongCore 的 fork：
+- 上游：Meloong-Git/MeloongCore, https://github.com/Meloong-Git/MeloongCore
+- 上游许可：Apache License 2.0（见 LICENSE.txt）
+- 原 PCL 项目：Copyright © 成都瓜皮龙科技有限公司，开发者 LTCat（龙腾猫跃）
+
+本 fork 中修改过的文件保留 Apache-2.0 许可；修改内容见 UPSTREAM.md 与 git 历史。

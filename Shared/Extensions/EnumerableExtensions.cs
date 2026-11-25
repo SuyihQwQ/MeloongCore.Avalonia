@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 namespace MeloongCore.Extensions;
 public static class EnumerableExtensions {
 
@@ -45,7 +46,7 @@ public static class EnumerableExtensions {
     /// <summary>
     /// 按对象的指定值去重。
     /// </summary>
-    public static ParallelQuery<TSource> DistinctBy<TSource, TKey>(this ParallelQuery<TSource> source, Func<TSource, TKey> selector) {
+    public static ParallelQuery<TSource> DistinctBy<TSource, TKey>(this ParallelQuery<TSource> source, Func<TSource, TKey> selector) where TKey : notnull {
         var seen = new ConcurrentDictionary<TKey, bool>();
         return source.Where(element => seen.TryAdd(selector(element), true));
     }
@@ -284,7 +285,7 @@ public static class EnumerableExtensions {
     /// 从 <see cref="ConcurrentDictionary{TKey, TValue}"/> 中移除具有指定键的元素。
     /// 返回是否确实移除了元素。
     /// </summary>
-    public static bool Remove<TKey, TValue>(this ConcurrentDictionary<TKey, TValue> dict, TKey key) 
+    public static bool Remove<TKey, TValue>(this ConcurrentDictionary<TKey, TValue> dict, TKey key) where TKey : notnull
         => dict.TryRemove(key, out _);
 
     /// <summary>

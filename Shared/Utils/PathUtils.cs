@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 namespace MeloongCore;
 public static class PathUtils {
 
@@ -6,14 +7,17 @@ public static class PathUtils {
     /// <summary>
     /// 确保路径的末尾包含任意文件夹分隔符。
     /// </summary>
+    /// <remarks>
+    /// PCL 的路径字符串按 Windows 习惯使用 \，非 Windows 平台上也可能以 \ 结尾，因此两种分隔符都要识别。
+    /// </remarks>
     public static string AddSlashSuffix(string folder) 
-        => folder + (folder.EndsWithF(Path.DirectorySeparatorChar) || folder.EndsWithF(Path.AltDirectorySeparatorChar) ? "" : Path.DirectorySeparatorChar);
+        => folder + (folder.EndsWithF('/') || folder.EndsWithF('\\') ? "" : Path.DirectorySeparatorChar);
 
     /// <summary>
     /// 确保路径的结尾不包含文件夹分隔符。
     /// </summary>
     public static string RemoveSlashSuffix(string folder) 
-        => folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        => folder.TrimEnd('/', '\\');
 
     #endregion
 
@@ -64,6 +68,7 @@ public static class PathUtils {
         if (Path.Combine(shortPath, pathToKeep).Length > 220) {
             Logger.Warn($"{nameof(GetShortPathNameW)} 未能有效缩短路径，将尝试生成新的短名称：{pathToShorten} → {shortPath}", LogBehavior.None);
             var candidates = new List<(string Path, string Name)>();
+            char[] shortNameBuffer = new char[12]; // 8.3 名称最长 12 个 Unicode 字符
             string? candidatePath = pathToShorten;
             while (!string.IsNullOrEmpty(candidatePath)) {
                 string candidateName = PathUtils.GetLastPart(candidatePath);
@@ -79,10 +84,10 @@ public static class PathUtils {
                 bool created = false;
                 try {
                     unsafe {
-                        fixed (char* originalNameBuffer = candidate.Name) {
-                            char* shortNameBuffer = stackalloc char[12]; // 8.3 名称最长 12 个 Unicode 字符
+                        fixed (char* originalNameBuffer = candidate.Name)
+                        fixed (char* shortNamePtr = shortNameBuffer) {
                             var name = new UnicodeString {Length = (ushort)(candidate.Name.Length * 2), MaximumLength = (ushort)((candidate.Name.Length + 1) * 2), Buffer = originalNameBuffer};
-                            var shortName = new UnicodeString {MaximumLength = 24, Buffer = shortNameBuffer};
+                            var shortName = new UnicodeString {MaximumLength = 24, Buffer = shortNamePtr};
                             var context = new GenerateNameContext();
                             for (int i = 0; i < 20; i++) { // 使用 Windows 自身的 8.3 名称生成算法，并通过 context 依次生成避让冲突的候选名
                                 shortName.Length = 0;
@@ -120,6 +125,7 @@ public static class PathUtils {
     /// </summary>
     public static string ToExtendedFormat(string pathName) {
         if (string.IsNullOrWhiteSpace(pathName)) return pathName;
+        if (!OperatingSystem.IsWindows()) return pathName;
         if (!pathName.Contains(@":")) return pathName; // 可能是相对路径，保持不变
         if (pathName.StartsWithF(@"\\?\")) return pathName; // 已经是长路径
         pathName = RemoveSlashSuffix(pathName).Replace('/', '\\'); // API 要求这个格式……
@@ -219,7 +225,10 @@ public static class PathUtils {
     /// </summary>
     public static string ForCompare(string pathName) {
         try {
-            return PathUtils.RemoveSlashSuffix(PathUtils.RemoveExtendedPrefix(Path.GetFullPath(pathName)).Replace("/", @"\"));
+            // PCL 的路径字符串按 Windows 习惯使用 \，在非 Windows 平台需要先统一，否则 \ 会被当作普通字符
+            if (!OperatingSystem.IsWindows()) pathName = pathName.Replace('\\', '/');
+            return PathUtils.RemoveSlashSuffix(PathUtils.RemoveExtendedPrefix(Path.GetFullPath(pathName))
+                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
         } catch (ArgumentException ex) {
             throw new ArgumentException($"路径不正确：{pathName}", ex);
         }
@@ -251,6 +260,8 @@ public static class PathUtils {
     /// <para/>具体而言：将分隔符改为 \。添加前导的 <c>\\?\</c>。若为驱动器则添加末尾分隔符，否则去除分隔符。
     /// </summary>
     public static string ForApi(string pathName) {
+        // 非 Windows 平台没有 \\?\ 与 Win32 路径规则，\ 也不是分隔符；PCL 的路径字符串按 Windows 习惯使用 \，这里统一换成 /
+        if (!OperatingSystem.IsWindows()) return pathName.Replace('\\', '/');
         pathName = PathUtils.ToExtendedFormat(pathName);
         if (pathName.EndsWithF(":")) pathName += @"\"; // 驱动器路径必须保留末尾的分隔符
         if (pathName.EndsWithF(@":\")) return pathName;
@@ -265,7 +276,7 @@ public static class PathUtils {
     public static bool IsParentOf(string parentPath, string childPath) {
         parentPath = PathUtils.ForCompare(parentPath);
         childPath = PathUtils.ForCompare(childPath);
-        return childPath.StartsWithF(parentPath + @"\", true) || PathUtils.IsSame(childPath, parentPath);
+        return childPath.StartsWithF(parentPath + Path.DirectorySeparatorChar, true) || PathUtils.IsSame(childPath, parentPath);
     }
 
 }

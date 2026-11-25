@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 namespace MeloongCore.Extensions;
 public static class WebExtensions {
 
@@ -7,7 +8,9 @@ public static class WebExtensions {
             Content = request.Content.Clone(),
             Version = request.Version
         };
-        foreach (KeyValuePair<string, object> prop in request.Properties) clone.Properties.Add(prop);
+        foreach (KeyValuePair<string, object?> prop in (IDictionary<string, object?>)request.Options) {
+            ((IDictionary<string, object?>)clone.Options)[prop.Key] = prop.Value;
+        }
         foreach (KeyValuePair<string, IEnumerable<string>> header in request.Headers) clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
         return clone;
     }
@@ -16,7 +19,9 @@ public static class WebExtensions {
             Content = await request.Content.CloneAsync().NoCapture(),
             Version = request.Version
         };
-        foreach (KeyValuePair<string, object> prop in request.Properties) clone.Properties.Add(prop);
+        foreach (KeyValuePair<string, object?> prop in (IDictionary<string, object?>)request.Options) {
+            ((IDictionary<string, object?>)clone.Options)[prop.Key] = prop.Value;
+        }
         foreach (KeyValuePair<string, IEnumerable<string>> header in request.Headers) clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
         return clone;
     }

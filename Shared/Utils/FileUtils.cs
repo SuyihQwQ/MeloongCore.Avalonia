@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 using System.IO.Compression;
 
 namespace MeloongCore;
@@ -14,7 +15,11 @@ public static class FileUtils {
             return Retrier.Attempt(delay: _ => TimeSpan.FromMilliseconds(200), isRetryAllowed: ex => ex is IOException, func: _ 
                 => new FileStream(PathUtils.ForApi(filePath), FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
         } else {
-            return type.Assembly.GetManifestResourceStream(filePath) ?? throw new FileNotFoundException($"Embedded resource \"{filePath}\" was not found.");
+            var assembly = type.Assembly;
+            return assembly.GetManifestResourceStream(filePath)
+                ?? assembly.GetManifestResourceStream(filePath.Replace('\\', '/'))
+                ?? assembly.GetManifestResourceStream(filePath.Replace('/', '\\'))
+                ?? throw new FileNotFoundException($"Embedded resource \"{filePath}\" was not found.");
         }
     }
 
@@ -105,12 +110,14 @@ public static class FileUtils {
     }
 
     /// <summary>
-    /// 原子写入文件。写入失败时目标文件保持不变。
+    /// 原子写入文件。成功时目标文件完整切换为新内容，失败时已有目标文件保持不变。
+    /// 不提供并发写入合并保证。
     /// </summary>
     public static void WriteAtomic(string filePath, string text, Encoding? encoding = null) =>
         FileUtils.WriteAtomic(filePath, (encoding ?? new UTF8Encoding()).GetBytes(text));
     /// <summary>
-    /// 原子写入文件。写入失败时目标文件保持不变。
+    /// 原子写入文件。成功时目标文件完整切换为新内容，失败时已有目标文件保持不变。
+    /// 不提供并发写入合并保证。
     /// </summary>
     public static void WriteAtomic(string filePath, byte[] content) {
         string tempPath = $"{filePath}.{Guid.NewGuid():N}.tmp";
@@ -271,8 +278,10 @@ public static class FileUtils {
     /// 将文件或文件夹删除到回收站。
     /// </summary>
     internal static void DeleteToRecycleBin(string target) {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("回收站删除仅在 Windows 上可用。");
         // 实际的删除方法
         void Run() {
+            if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("回收站删除仅在 Windows 上可用。");
             IShellItem? item = null;
             IFileOperation? op = null;
             try {
@@ -460,13 +469,14 @@ public static class FileUtils {
         => File.Exists(PathUtils.ForApi(filePath));
 
     /// <summary>
-    /// 检查文件是否存在，且当前程序有独占的读写权限，未被其他进程占用。
+    /// 检查文件是否未被其他进程占用
+    /// <para>被占用或无权读取时返回 <see langword="false"/>。</para>
     /// </summary>
     public static bool IsAvailable(string filePath) {
-        if (!Exists(filePath)) return false;
+        if (!Exists(filePath)) return true;
         try {
             Retrier.Attempt(maxAttempts: 3, delay: _ => TimeSpan.FromMilliseconds(200), isRetryAllowed: ex => ex is IOException, action: _ => {
-                using var unused = new FileStream(PathUtils.ForApi(filePath), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                using var stream = new FileStream(PathUtils.ForApi(filePath), FileMode.Open, FileAccess.Read, FileShare.None);
             });
             return true;
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {

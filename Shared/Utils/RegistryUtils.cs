@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+using System.Runtime.Versioning;
 using Microsoft.Win32;
 namespace MeloongCore;
 
@@ -10,6 +12,7 @@ public static class RegistryUtils {
     /// <para/>若键值为 <see cref="NULL_STRING"/>，则返回 <c>null</c>。
     /// </summary>
     public static (object? result, bool exists) Read(string folder, string entry) {
+        if (!OperatingSystem.IsWindows()) return (null, false);
         using RegistryKey? folderKey = GetRegistryKey(folder);
         var result = folderKey?.GetValue(entry);
         if (result is null) return (null, false);
@@ -35,6 +38,10 @@ public static class RegistryUtils {
     /// <para/>若 <paramref name="value"/> 为 <c>null</c>，则写入 <see cref="NULL_STRING"/>。
     /// </summary>
     public static void Write(string folder, string entry, object? value) {
+        if (!OperatingSystem.IsWindows()) {
+            Logger.Warn($"跳过注册表写入（当前平台不支持）：{folder}\\{entry}");
+            return;
+        }
         using RegistryKey folderKey = GetRegistryKey(folder, create: true)!;
         folderKey.SetValue(entry, value ?? NULL_STRING);
     }
@@ -43,6 +50,7 @@ public static class RegistryUtils {
     /// 判断对应的注册表值是否存在。
     /// </summary>
     public static bool Has(string folder, string entry) {
+        if (!OperatingSystem.IsWindows()) return false;
         using RegistryKey? folderKey = GetRegistryKey(folder);
         if (folderKey is null) return false;
         object notFound = new();
@@ -53,10 +61,12 @@ public static class RegistryUtils {
     /// 删除注册表值。若不存在则不执行操作。
     /// </summary>
     public static void Delete(string folder, string entry) {
+        if (!OperatingSystem.IsWindows()) return;
         using RegistryKey? folderKey = GetRegistryKey(folder, writable: true);
         folderKey?.DeleteValue(entry, throwOnMissingValue: false);
     }
 
+    [SupportedOSPlatform("windows")]
     private static RegistryKey? GetRegistryKey(string fullPath, bool writable = false, bool create = false) {
         using RegistryKey key = fullPath.BeforeFirst("\\").ToUpperInvariant() switch {
             "HKEY_CLASSES_ROOT" => Registry.ClassesRoot,

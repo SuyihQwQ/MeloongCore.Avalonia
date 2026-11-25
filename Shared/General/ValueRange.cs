@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 namespace MeloongCore;
 
 /// <summary>
@@ -200,8 +201,8 @@ public sealed class ValueRange<T>(
     }
     public override int GetHashCode() {
         int hashCode = 169504101;
-        hashCode=hashCode*-1521134295+EqualityComparer<T?>.Default.GetHashCode(Lower);
-        hashCode=hashCode*-1521134295+EqualityComparer<T?>.Default.GetHashCode(Upper);
+        hashCode=hashCode*-1521134295+(Lower is null ? 0 : EqualityComparer<T>.Default.GetHashCode(Lower));
+        hashCode=hashCode*-1521134295+(Upper is null ? 0 : EqualityComparer<T>.Default.GetHashCode(Upper));
         hashCode=hashCode*-1521134295+HasLower.GetHashCode();
         hashCode=hashCode*-1521134295+HasUpper.GetHashCode();
         hashCode=hashCode*-1521134295+IsLowerInclusive.GetHashCode();

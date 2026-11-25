@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 namespace MeloongCore;
 
 /// <summary>
@@ -7,7 +8,7 @@ public class HttpRequestCodeException(string message, HttpStatusCode statusCode,
     /// <summary>
     /// HTTP 请求的状态码。
     /// </summary>
-    public HttpStatusCode StatusCode { get; } = statusCode;
+    public new HttpStatusCode StatusCode { get; } = statusCode;
     /// <summary>
     /// 远程服务器给予的回复。
     /// </summary>
